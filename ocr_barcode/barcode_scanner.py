@@ -16,12 +16,86 @@ barcode_scanner.py — pyzbar 条码扫描模块
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+import threading
+from typing import Any, Callable, Dict, List, Optional
 
 import cv2
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# ---- pyzbar 解析缓存（修复 import 卡死）----
+# 根因: 过去每帧最多 7 次在 _decode_image 内 `from pyzbar.pyzbar import decode`，
+# Python 不缓存失败的 import，导致每帧重跑 ctypes.util.find_library('zbar') 的
+# 子进程探测 (ldconfig/gcc/ld)；libzbar 不可用或解析慢时节点直接卡死。
+# 解决: 全进程只解析一次，结果 (callable 或 None) 永久缓存；并用看门狗线程
+# 对首次解析加超时，避免 find_library 阻塞时无限挂起。
+_PYZBAR_INIT_TIMEOUT = 5.0  # 首次解析 pyzbar 的最长等待秒数
+_pyzbar_lock = threading.Lock()
+_pyzbar_resolved = False  # 是否已尝试过解析
+_pyzbar_decode: Optional[Callable[[Any], Any]] = None  # 解析得到的 decode；None=不可用
+
+
+def _load_pyzbar_decode() -> Optional[Callable[[Any], Any]]:
+    """实际加载 pyzbar.decode（会触发 find_library/cdll）。
+    失败返回 None，绝不抛异常。这是被看门狗线程调用、可被测试替换的接缝。
+    """
+    try:
+        from pyzbar.pyzbar import decode as pyzbar_decode
+        return pyzbar_decode
+    except Exception as exc:  # ImportError / OSError(找不到 libzbar) 等
+        logger.error(
+            "pyzbar 不可用，条码识别将降级跳过: %s "
+            "(请在目标机安装 libzbar0 并执行 ldconfig)", exc,
+        )
+        return None
+
+
+def _ensure_pyzbar(timeout: float = _PYZBAR_INIT_TIMEOUT) -> Optional[Callable[[Any], Any]]:
+    """返回缓存的 pyzbar.decode（callable）或 None。
+
+    全进程仅真正解析一次：成功缓存 callable，失败/超时缓存 None 且不再重试，
+    从根本上杜绝每帧重复 import 触发 find_library 子进程探测导致的卡死。
+    首次解析在守护线程中执行并施加超时，确保 find_library 阻塞时也能按时降级。
+    """
+    global _pyzbar_resolved, _pyzbar_decode
+    if _pyzbar_resolved:
+        return _pyzbar_decode
+
+    with _pyzbar_lock:
+        if _pyzbar_resolved:  # 双重检查，避免并发重复解析
+            return _pyzbar_decode
+
+        result: List[Optional[Callable[[Any], Any]]] = [None]
+
+        def _worker() -> None:
+            result[0] = _load_pyzbar_decode()
+
+        t = threading.Thread(target=_worker, name="pyzbar-init", daemon=True)
+        t.start()
+        t.join(timeout)
+
+        if t.is_alive():
+            # find_library/ldconfig 等阻塞超时：标记不可用并缓存，后续不再重试。
+            # 守护线程被遗弃（不阻塞进程退出），优于让节点永久卡死。
+            logger.error(
+                "pyzbar 解析超过 %.1fs 仍未完成（疑似 find_library/ldconfig 阻塞），"
+                "条码识别已降级跳过。", timeout,
+            )
+            _pyzbar_decode = None
+        else:
+            _pyzbar_decode = result[0]
+
+        _pyzbar_resolved = True
+        return _pyzbar_decode
+
+
+def _reset_pyzbar_cache() -> None:
+    """重置 pyzbar 解析缓存（仅供测试使用）。"""
+    global _pyzbar_resolved, _pyzbar_decode
+    with _pyzbar_lock:
+        _pyzbar_resolved = False
+        _pyzbar_decode = None
 
 # 支持的条码类型
 SUPPORTED_SYMBOLOGIES = {"EAN13", "EAN-13", "CODE128", "CODE-128", "QRCODE",
@@ -42,10 +116,13 @@ def _decode_image(cv2_image: np.ndarray) -> List[Dict[str, Any]]:
     返回 list[dict]，每个 dict 包含 data, type, quality。
     不会抛出异常。
     """
-    from pyzbar.pyzbar import decode as pyzbar_decode
-    from pyzbar.pyzbar import ZBarSymbol
-
     results: List[Dict[str, Any]] = []
+
+    # pyzbar 解析只发生一次（缓存）；不可用时直接降级返回，绝不每帧重试 import。
+    pyzbar_decode = _ensure_pyzbar()
+    if pyzbar_decode is None:
+        return results
+
     try:
         # pyzbar 支持传入 numpy 数组（cv2 BGR 格式需要转 RGB 吗？pyzbar 能处理 BGR）
         decoded_objects = pyzbar_decode(cv2_image)

@@ -12,6 +12,9 @@ echo "===== PharmacyBot 系统依赖安装 ====="
 echo "[1/3] 安装系统依赖 (libzbar0 — pyzbar 需要)..."
 sudo apt update -qq
 sudo apt install libzbar0 -y
+# 刷新动态链接库缓存：确保 pyzbar 的 ctypes.util.find_library('zbar')
+# 命中 ldconfig 快速路径，避免回退到 gcc/ld 子进程探测（冷缓存时可能阻塞/卡死）。
+sudo ldconfig
 echo "✔ 系统依赖安装完成"
 
 # ── Python 基础视觉库 ──────────────────────────────────────
