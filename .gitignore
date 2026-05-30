@@ -42,3 +42,8 @@ Thumbs.db
 !models/.gitkeep
 !scripts/.gitkeep
 *.tar
+node_modules/
+gen_ppt.js
+package-lock.json
+package.json
+*.pdf
