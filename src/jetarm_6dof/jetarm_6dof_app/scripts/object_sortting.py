@@ -102,6 +102,9 @@ class ObjectSorttingNode():
             "tag_3": False,
         }
 
+        # 展示模式：抓取后举起展示而非放入色筐（默认 False，保持原分拣行为）
+        self.present_only = rospy.get_param('~present_only', False)
+
         # ── 检测模式 ──
         self.detection_mode = DETECTION_MODE_AUTO
         self._drug_result_stable = None
@@ -137,7 +140,7 @@ class ObjectSorttingNode():
         self.heart = heart.Heart('~heartbeat', 5, lambda e: self.exit_srv_callback(e))
 
     def go_home(self):
-        if self.target is not None and self.target[0] in ["bule", "tag_1"]:
+        if self.target is not None and self.target[0] in ["blue", "tag_1"]:
             time = 1.6
         elif self.target is not None and self.target[0] in ["green", "tag_2"]:
             time = 1.3
@@ -366,6 +369,27 @@ class ObjectSorttingNode():
         rospy.loginfo("finish action: {:.2%}".format(msg.percent))
         self.finish_percent = msg.percent;
 
+    def present(self):
+        """展示模式：抓取完成后把方块举到预设展示位并保持夹持，不放下、停止本次抓取。
+
+        展示位关节角为初值，真机上可微调（见实现计划 Task 7 标定步骤）。
+        不发送夹爪舵机(10)指令，保持 pick 时的夹持状态。
+        """
+        rospy.loginfo("展示模式：举起展示，不入筐")
+        bus_servo_control.set_servos(
+            self.servos_pub, 1500,
+            ((1, 500), (2, 650), (3, 400), (4, 300), (5, 500)),
+        )
+        rospy.sleep(1.8)
+        # 干净复位状态机（方块仍夹持在夹爪中），并停止本次分拣
+        self.get_endpoint()
+        self.last_position = None
+        self.target = None
+        self.count = 0
+        self.moving_step = 0
+        self.enable_sortting = False
+        self.stop_thread = True
+
     def place(self):
         goal = MoveGoal()
         goal.grasp.mode = 'place'
@@ -432,7 +456,10 @@ class ObjectSorttingNode():
                 self.start_sortting(pose_t,pose_R)
             elif self.status == 2:
                 self.status = 0
-                self.place()
+                if self.present_only:
+                    self.present()
+                else:
+                    self.place()
             else:
                 rospy.sleep(0.01)
     def image_callback(self, ros_image):
