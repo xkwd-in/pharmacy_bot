@@ -4,11 +4,18 @@
 # @author:pharmacy_bot
 # 语音控制药房分拣
 import os
+import sys
 import json
 import rospy
 from std_msgs.msg import String
 from std_srvs.srv import Trigger, SetBool
+from std_srvs.srv import SetString as SetStringSrv
+from hiwonder_interfaces.srv import SetStringBool
 from xf_mic_asr_offline import voice_play
+
+# 让本脚本能 import 同目录下的纯逻辑模块
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pharmacy_drug_map import lookup_drug_color  # noqa: E402
 
 class VoiceControlPharmacyNode:
     def __init__(self, name):
@@ -17,9 +24,14 @@ class VoiceControlPharmacyNode:
         self.language = os.environ['ASR_LANGUAGE']
         rospy.Subscriber('/voice_control/voice_words', String, self.words_callback)
 
+        # 药品→颜色映射（rosparam 可覆盖，缺省用内置默认表）
+        self.drug_color_map = rospy.get_param('/pharmacy/drug_color_map', None)
+
         # 等待分拣服务就绪
         rospy.wait_for_service('/object_sortting/enable_sortting')
         rospy.wait_for_service('/object_sortting/exit')
+        rospy.wait_for_service('/object_sortting/set_color_target')
+        rospy.wait_for_service('/object_sortting/set_detection_mode')
         rospy.sleep(5)
 
         # 设置默认模式
@@ -34,6 +46,24 @@ class VoiceControlPharmacyNode:
     def play(self, name):
         voice_play.play(name, language=self.language)
 
+    def grab_drug(self, drug, color):
+        """锁定单一颜色并触发一次抓取（展示模式由 object_sortting 的 present_only 决定）。"""
+        rospy.loginfo('收到取药指令: %s -> %s', drug, color)
+        try:
+            rospy.ServiceProxy('/object_sortting/set_detection_mode', SetStringSrv)('color_only')
+            # 只锁定目标颜色，关闭其它颜色目标
+            for c in ('red', 'green', 'blue'):
+                rospy.ServiceProxy('/object_sortting/set_color_target', SetStringBool)(c, c == color)
+            res = rospy.ServiceProxy('/object_sortting/enable_sortting', SetBool)(True)
+            if res.success:
+                rospy.loginfo('开始为 %s 抓取 %s 色块', drug, color)
+                self.play('start_sort')
+            else:
+                rospy.logwarn('启动取药抓取失败')
+                self.play('cannot_recognize')
+        except rospy.ServiceException as e:
+            rospy.logerr('取药服务调用失败: %s', str(e))
+
     def words_callback(self, msg):
         words = json.dumps(msg.data, ensure_ascii=False)[1:-1]
         if self.language == 'Chinese':
@@ -41,6 +71,13 @@ class VoiceControlPharmacyNode:
         print('words:', words)
 
         if words is not None and words not in ['唤醒成功(wake-up-success)', '休眠(Sleep)', '失败5次(Fail-5-times)', '失败10次(Fail-10-times']:
+            # 优先：药品名 → 颜色 → 抓取展示
+            drug_color = lookup_drug_color(words, self.drug_color_map)
+            if drug_color is not None:
+                drug, color = drug_color
+                self.grab_drug(drug, color)
+                return
+
             # 开始分拣
             if words == '开始分拣':
                 self.play('start_sort')
