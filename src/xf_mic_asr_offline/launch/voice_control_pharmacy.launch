@@ -21,10 +21,18 @@
         <arg name="enable_joystick" value="false"/>
     </include>
 
-    <!-- 药房分拣 -->
+    <!-- 药品→颜色映射表（可在此处增改药品；颜色须为 red/green/blue） -->
+    <rosparam param="/pharmacy/drug_color_map">
+      阿莫西林: red
+      布洛芬: green
+      维生素C: blue
+    </rosparam>
+
+    <!-- 药房分拣（present_only=true：抓起后举到展示位，不入筐） -->
     <include file="$(find jetarm_6dof_app)/launch/object_sortting.launch">
     	<arg name="source_image_topic" value="$(arg source_image_topic)" />
     	<arg name="camera_info_topic" value="$(arg camera_info_topic)" />
+    	<arg name="present_only" value="true" />
     </include>
 
     <include file="$(find xf_mic_asr_offline)/launch/mic_init.launch"/>
