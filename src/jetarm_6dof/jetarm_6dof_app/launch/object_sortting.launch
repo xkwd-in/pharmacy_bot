@@ -1,9 +1,11 @@
 <launch>
         <arg name="source_image_topic" default="/rgbd_cam/color/image_rect_color" />
         <arg name="camera_info_topic" default="/rgbd_cam/color/camera_info" />
+        <arg name="present_only" default="false" />
 
         <node name="object_sortting" pkg="jetarm_6dof_app" type="object_sortting.py" output="screen" respawn="true">
                 <param name="source_image_topic" value="$(arg source_image_topic)" />
                 <param name="camera_info_topic" value="$(arg camera_info_topic)" />
+                <param name="present_only" value="$(arg present_only)" />
         </node>
 </launch>
