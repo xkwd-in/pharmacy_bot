@@ -9,7 +9,8 @@ import json
 import rospy
 from std_msgs.msg import String
 from std_srvs.srv import Trigger, SetBool
-from std_srvs.srv import SetString as SetStringSrv
+# SetString 是本仓库 xf_mic_asr_offline 包里的自定义服务，std_srvs 没有它
+from xf_mic_asr_offline.srv import SetString as SetStringSrv
 from hiwonder_interfaces.srv import SetStringBool
 from xf_mic_asr_offline import voice_play
 

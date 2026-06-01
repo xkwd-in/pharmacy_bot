@@ -13,7 +13,8 @@ from vision_utils import xyz_quat_to_mat, xyz_euler_to_mat, xyz_rot_to_mat, mat_
 from sensor_msgs.msg import Image as RosImage, CameraInfo
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
-from std_srvs.srv import SetString as SetStringSrv, SetStringResponse as SetStringSrvResponse
+# SetString 是 xf_mic_asr_offline 包的自定义服务（std_srvs 没有），客户端 voice_control_pharmacy 也用同一个
+from xf_mic_asr_offline.srv import SetString as SetStringSrv, SetStringResponse as SetStringSrvResponse
 from hiwonder_interfaces.srv import SetStringBool, SetStringBoolRequest, SetStringBoolResponse, GetRobotPose
 from hiwonder_interfaces.msg import Grasp, MoveAction, MoveGoal, MultiRawIdPosDur
 from utils import unregister
