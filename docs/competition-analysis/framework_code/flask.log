@@ -1,0 +1,27 @@
+2026-05-15 04:36:39,362 [INFO] ai_consultant: RAG 索引占位：实际部署需加载药典向量库
+2026-05-15 04:36:39,363 [WARNING] ai_consultant: dashscope 未安装，LLM 降级为 stub
+2026-05-15 04:36:39,363 [WARNING] vision_pipeline: pyzbar 未安装
+2026-05-15 04:36:39,363 [WARNING] vision_pipeline: PaddleOCR 未安装
+2026-05-15 04:36:39,363 [WARNING] vision_pipeline: ultralytics 未安装
+ * Serving Flask app 'pharmacy_main'
+ * Debug mode: on
+2026-05-15 04:36:39,406 [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.140.0.3:5000
+2026-05-15 04:36:39,406 [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-05-15 04:36:39,407 [INFO] werkzeug:  * Restarting with stat
+2026-05-15 04:36:39,631 [INFO] ai_consultant: RAG 索引占位：实际部署需加载药典向量库
+2026-05-15 04:36:39,631 [WARNING] ai_consultant: dashscope 未安装，LLM 降级为 stub
+2026-05-15 04:36:39,631 [WARNING] vision_pipeline: pyzbar 未安装
+2026-05-15 04:36:39,631 [WARNING] vision_pipeline: PaddleOCR 未安装
+2026-05-15 04:36:39,632 [WARNING] vision_pipeline: ultralytics 未安装
+2026-05-15 04:36:39,647 [WARNING] werkzeug:  * Debugger is active!
+2026-05-15 04:36:39,679 [INFO] werkzeug:  * Debugger PIN: 814-165-531
+2026-05-15 04:37:05,165 [INFO] werkzeug: 127.0.0.1 - - [15/May/2026 04:37:05] "GET /api/dashboard HTTP/1.1" 200 -
+2026-05-15 04:37:05,173 [INFO] werkzeug: 127.0.0.1 - - [15/May/2026 04:37:05] "POST /api/consult HTTP/1.1" 200 -
+2026-05-15 04:37:05,934 [INFO] __main__: 推送机械臂调剂任务: rx_id=1, tasks=1
+2026-05-15 04:37:05,935 [INFO] werkzeug: 127.0.0.1 - - [15/May/2026 04:37:05] "POST /api/confirm_dispense HTTP/1.1" 200 -
+2026-05-15 04:37:06,089 [WARNING] inventory: ⚠️ 补仓告警：阿莫西林胶囊 库存 13 < 阈值 20
+2026-05-15 04:37:06,089 [INFO] werkzeug: 127.0.0.1 - - [15/May/2026 04:37:06] "POST /api/dispense_done HTTP/1.1" 200 -
+2026-05-15 04:37:20,228 [INFO] werkzeug: 127.0.0.1 - - [15/May/2026 04:37:20] "GET / HTTP/1.1" 200 -
